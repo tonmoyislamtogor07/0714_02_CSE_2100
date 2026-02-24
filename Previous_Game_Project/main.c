@@ -1,307 +1,199 @@
-﻿#include "raylib.h"
+#include "raylib.h"
 
-#if defined(PLATFORM_WEB)
-#include <emscripten/emscripten.h>
-#endif
+#define MAX 400
+#define SZ 31
 
-#define SNAKE_LENGTH   400
-#define SQUARE_SIZE     31
+int W = 800;
+int H = 450;
 
-typedef struct Snake {
-    Vector2 position;
-    Vector2 size;
-    Vector2 speed;
-    Color color;
-} Snake;
+int x[MAX];
+int y[MAX];
+int snkLen = 1;
+int scr = 0;
+int dir = 1;
+int frm = 0;
+int fx, fy;
+bool food = false;
+bool go = false;
+bool mvOK = false;
 
-typedef struct Food {
-    Vector2 position;
-    Vector2 size;
-    bool active;
-    Color color;
-} Food;
 
-// Global Variables Declaration
-static const int screenWidth = 800;
-static const int screenHeight = 450;
+void init();
+void mv();
+void chk();
+void drw();
+void loop();
 
-static int framesCounter = 0;
-static int score = 0;
-static bool gameOver = false;
-static bool pause = false;
-
-static Food fruit = { 0 };
-static Snake snake[SNAKE_LENGTH] = { 0 };
-static Vector2 snakePosition[SNAKE_LENGTH] = { 0 };
-static bool allowMove = false;
-static Vector2 offset = { 0 };
-static int counterTail = 0;
-
-static int freezeCounter = 0;   // NEW: delay before game over
-
-// Module Functions Declaration (local)
-static void InitGame(void);         // Initialize game
-static void UpdateGame(void);       // Update game (one frame)
-static void DrawGame(void);         // Draw game (one frame)
-static void UnloadGame(void);       // Unload game
-static void UpdateDrawFrame(void);  // Update and Draw (one frame)
-
-// Program main entry point
-int main(void)
+int main()
 {
-    InitWindow(screenWidth, screenHeight, "classic game: snake");
+    InitWindow(W,H,"snake");
 
-    InitGame();
+    init();
 
-#if defined(PLATFORM_WEB)
-    emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
-#else
     SetTargetFPS(30);
-    while (!WindowShouldClose())
-    {
-        UpdateDrawFrame();
-    }
-#endif
 
-    UnloadGame();
+    while(!WindowShouldClose())
+    {
+        loop();
+    }
+
     CloseWindow();
-
-    return 0;
 }
 
-// Initialize game variables
-void InitGame(void)
+
+void init()
 {
-    framesCounter = 0;
-    score = 0;
-    gameOver = false;
-    pause = false;
-    freezeCounter = 0;
 
-    counterTail = 1;
-    allowMove = false;
+    snkLen=1;
 
-    int cols = screenWidth / SQUARE_SIZE;
-    int rows = screenHeight / SQUARE_SIZE;
+    scr=0;
 
-    offset.x = (float)((screenWidth - cols * SQUARE_SIZE) / 2);
-    offset.y = (float)((screenHeight - rows * SQUARE_SIZE) / 2);
+    dir=1;
 
-    for (int i = 0; i < SNAKE_LENGTH; i++)
+    frm=0;
+
+    go=false;
+
+    for(int i=0;i<MAX;i++)
     {
-        snake[i].position = (Vector2){ offset.x, offset.y };
-        snake[i].size = (Vector2){ SQUARE_SIZE, SQUARE_SIZE };
-        snake[i].speed = (Vector2){ SQUARE_SIZE, 0 };
-        snake[i].color = (i == 0) ? BLUE : SKYBLUE;
-        snakePosition[i] = (Vector2){ 0.0f, 0.0f };
+        x[i]=W/2;
+        y[i]=H/2;
     }
 
-    fruit.size = (Vector2){ SQUARE_SIZE, SQUARE_SIZE };
-    fruit.color = YELLOW;
-    fruit.active = false;
+    food=false;
 }
 
-// Update game (one frame)
-void UpdateGame(void)
-{
-    if (!gameOver)
-    {
-        if (IsKeyPressed('P')) pause = !pause;
 
-        if (!pause)
+void mv()
+{
+
+    if(IsKeyPressed(KEY_RIGHT) && dir!=2 && mvOK)
+    {
+        dir=1;
+        mvOK=false;
+    }
+
+    if(IsKeyPressed(KEY_LEFT) && dir!=1 && mvOK)
+    {
+        dir=2;
+        mvOK=false;
+    }
+
+    if(IsKeyPressed(KEY_UP) && dir!=4 && mvOK)
+    {
+        dir=3;
+        mvOK=false;
+    }
+
+    if(IsKeyPressed(KEY_DOWN) && dir!=3 && mvOK)
+    {
+        dir=4;
+        mvOK=false;
+    }
+
+
+    if(frm%5==0)
+    {
+
+        for(int i=snkLen;i>0;i--)
         {
-            if (freezeCounter > 0)
-            {
-                freezeCounter--;
-                if (freezeCounter == 0)
-                {
-                    gameOver = true;
-                }
-                return;  
-            }
-
-            // Player control
-            if (IsKeyPressed(KEY_RIGHT) && (snake[0].speed.x == 0) && allowMove)
-            {
-                snake[0].speed = (Vector2){ SQUARE_SIZE, 0 };
-                allowMove = false;
-            }
-            if (IsKeyPressed(KEY_LEFT) && (snake[0].speed.x == 0) && allowMove)
-            {
-                snake[0].speed = (Vector2){ -SQUARE_SIZE, 0 };
-                allowMove = false;
-            }
-            if (IsKeyPressed(KEY_UP) && (snake[0].speed.y == 0) && allowMove)
-            {
-                snake[0].speed = (Vector2){ 0, -SQUARE_SIZE };
-                allowMove = false;
-            }
-            if (IsKeyPressed(KEY_DOWN) && (snake[0].speed.y == 0) && allowMove)
-            {
-                snake[0].speed = (Vector2){ 0, SQUARE_SIZE };
-                allowMove = false;
-            }
-
-            // Snake movement
-            for (int i = 0; i < counterTail; i++) snakePosition[i] = snake[i].position;
-
-            if ((framesCounter % 5) == 0)
-            {
-                for (int i = 0; i < counterTail; i++)
-                {
-                    if (i == 0)
-                    {
-                        snake[0].position.x += snake[0].speed.x;
-                        snake[0].position.y += snake[0].speed.y;
-                        allowMove = true;
-                    }
-                    else snake[i].position = snakePosition[i - 1];
-                }
-            }
-
-            // Grid bounds
-            int cols = screenWidth / SQUARE_SIZE;
-            int rows = screenHeight / SQUARE_SIZE;
-            float minX = offset.x;
-            float minY = offset.y;
-            float maxX = offset.x + (cols - 1) * SQUARE_SIZE;
-            float maxY = offset.y + (rows - 1) * SQUARE_SIZE;
-
-            // Wrap-around logic
-            if (snake[0].position.x > maxX) snake[0].position.x = minX;
-            else if (snake[0].position.x < minX) snake[0].position.x = maxX;
-            if (snake[0].position.y > maxY) snake[0].position.y = minY;
-            else if (snake[0].position.y < minY) snake[0].position.y = maxY;
-
-            // Self Collision Detection 
-            for (int i = 1; i < counterTail; i++)
-            {
-                if ((snake[0].position.x == snake[i].position.x) &&
-                    (snake[0].position.y == snake[i].position.y))
-                {
-                    freezeCounter = 60; 
-                }
-            }
-
-            // Fruit position calculation
-            if (!fruit.active)
-            {
-                fruit.active = true;
-                int fx, fy;
-                int cols = screenWidth / SQUARE_SIZE;
-                int rows = screenHeight / SQUARE_SIZE;
-                fx = GetRandomValue(0, cols - 1);
-                fy = GetRandomValue(0, rows - 1);
-                fruit.position = (Vector2){ offset.x + fx * SQUARE_SIZE, offset.y + fy * SQUARE_SIZE };
-
-                if (counterTail >= cols * rows)
-                {
-                    fruit.active = false;
-                }
-                else
-                {
-                    bool collide;
-                    do
-                    {
-                        collide = false;
-
-                        for (int i = 0; i < counterTail; i++)
-                        {
-                            if ((fruit.position.x == snake[i].position.x) && (fruit.position.y == snake[i].position.y))
-                            {
-                                fx = GetRandomValue(0, cols - 1);
-                                fy = GetRandomValue(0, rows - 1);
-                                fruit.position = (Vector2){ offset.x + fx * SQUARE_SIZE, offset.y + fy * SQUARE_SIZE };
-                                collide = true;
-                                break;
-                            }
-                        }
-                    } while (collide);
-                }
-            }
-
-            // Collision with fruit
-            if ((int)(snake[0].position.x == fruit.position.x) &&
-                (int)(snake[0].position.y == fruit.position.y))
-            {
-                snake[counterTail].position = snakePosition[counterTail - 1];
-                counterTail++;
-                fruit.active = false;
-                score++;
-            }
-
-
-            framesCounter++;
+            x[i]=x[i-1];
+            y[i]=y[i-1];
         }
+
+        if(dir==1) x[0]+=SZ;
+        if(dir==2) x[0]-=SZ;
+        if(dir==3) y[0]-=SZ;
+        if(dir==4) y[0]+=SZ;
+
+        mvOK=true;
     }
-    else
-    {
-        if (IsKeyPressed(KEY_ENTER))
-        {
-            InitGame();
-            gameOver = false;
-        }
-    }
+
+    frm++;
 }
 
-// Draw game (one frame)
-void DrawGame(void)
+
+void chk()
 {
+
+    if(x[0]<0) x[0]=W-SZ;
+    if(x[0]>W-SZ) x[0]=0;
+
+    if(y[0]<0) y[0]=H-SZ;
+    if(y[0]>H-SZ) y[0]=0;
+
+
+    for(int i=1;i<snkLen;i++)
+    {
+        if(x[0]==x[i] && y[0]==y[i])
+            go=true;
+    }
+
+
+    if(!food)
+    {
+        fx=GetRandomValue(0,W/SZ-1)*SZ;
+        fy=GetRandomValue(0,H/SZ-1)*SZ;
+
+        food=true;
+    }
+
+
+    if(x[0]==fx && y[0]==fy)
+    {
+        snkLen++;
+
+        scr++;
+
+        food=false;
+    }
+
+}
+
+
+void drw()
+{
+
     BeginDrawing();
 
     ClearBackground(BLACK);
 
-    if (!gameOver)
+
+    if(!go)
     {
-        int cols = screenWidth / SQUARE_SIZE;
-        int rows = screenHeight / SQUARE_SIZE;
 
-        for (int i = 0; i <= cols; i++)
-        {
-            DrawLineV((Vector2){ offset.x + i * SQUARE_SIZE, offset.y },
-                (Vector2){ offset.x + i * SQUARE_SIZE, offset.y + rows * SQUARE_SIZE }, LIGHTGRAY);
-        }
+        for(int i=0;i<snkLen;i++)
+        DrawRectangle(x[i],y[i],SZ,SZ,GREEN);
 
-        for (int i = 0; i <= rows; i++)
-        {
-            DrawLineV((Vector2){ offset.x, offset.y + i * SQUARE_SIZE },
-                (Vector2){ offset.x + cols * SQUARE_SIZE, offset.y + i * SQUARE_SIZE }, LIGHTGRAY);
-        }
+        DrawRectangle(fx,fy,SZ,SZ,YELLOW);
 
-        for (int i = 0; i < counterTail; i++) DrawRectangleV(snake[i].position, snake[i].size, snake[i].color);
-        DrawRectangleV(fruit.position, fruit.size, fruit.color);
-
-        if (pause) DrawText("GAME PAUSED", screenWidth / 2 - MeasureText("GAME PAUSED", 40) / 2, screenHeight / 2 - 40, 40, GRAY);
-
-        // Red tint when snake crashed
-        if (freezeCounter > 0)
-        {
-            DrawRectangle(0, 0, screenWidth, screenHeight, Fade(RED, 0.3f));
-        }
+        DrawText(TextFormat("Score: %d",scr),
+        10,10,20,WHITE);
     }
     else
     {
-        DrawText("GAME OVER!", GetScreenWidth() / 2 - MeasureText("GAME OVER!", 40) / 2, GetScreenHeight() / 2 - 80, 40, RED);
-        DrawText(TextFormat("FINAL SCORE: %d", score),
-            GetScreenWidth() / 2 - MeasureText(TextFormat("FINAL SCORE: %d", score), 30) / 2,
-            GetScreenHeight() / 2 - 30, 30, YELLOW);
-        DrawText("PRESS [ENTER] TO PLAY AGAIN",
-            GetScreenWidth() / 2 - MeasureText("PRESS [ENTER] TO PLAY AGAIN", 20) / 2,
-            GetScreenHeight() / 2 + 20, 20, GRAY);
+        DrawText("GAME OVER",
+        W/2-100,
+        H/2,
+        40,
+        RED);
     }
-
     EndDrawing();
 }
 
-// Unload game variables
-void UnloadGame(void)
+void loop()
 {
-    // Nothing to unload in this version
-}
+    if(!go)
+    {
+        mv();
+        chk();
+    }
+    else
+    {
+        if(IsKeyPressed(KEY_ENTER))
+            init();
+    }
+    
+    drw();
 
-// Update and Draw (one frame)
-void UpdateDrawFrame(void)
-{
-    UpdateGame();
-    DrawGame();
 }
