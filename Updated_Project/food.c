@@ -1,140 +1,148 @@
 /*
  * food.c
- * 
- * Food entity management
- * Handles food spawning, collision detection, and rendering
- * 
+ *
+ * Food handling file
+ * This file manages food in the snake game
+ *
  * Course: Advanced Programming Lab
  * Date: February 2026
  */
 
 #include "snake_game.h"
-#include <assert.h>
 
-// ============================================================================
+
+// ==============================
 // FOOD INITIALIZATION
-// ============================================================================
+// ==============================
 
 /*
- * Initialize food with default properties
- * Food starts inactive and will be spawned during gameplay
- * 
- * @param food - Pointer to food structure to initialize
+ * initialize food
+ * set size and color
+ * food is not active at start
  */
-void Food_Initialize(Food* food)
+void Food_Initialize(Food* f)
 {
-    assert(food != NULL);
-    
-    food->size = (Vector2){ SQUARE_SIZE, SQUARE_SIZE };
-    food->color = YELLOW;
-    food->active = false;
-    food->position = (Vector2){ 0.0f, 0.0f };
+
+    f->size.x = SQUARE_SIZE;
+    f->size.y = SQUARE_SIZE;
+
+    f->color = YELLOW;
+
+    f->active = false;
+
+    f->position.x = 0;
+    f->position.y = 0;
+
 }
 
-// ============================================================================
-// FOOD SPAWNING
-// ============================================================================
+
+
+// ==============================
+// FOOD SPAWN
+// ==============================
 
 /*
- * Spawn food at a random grid position
- * Ensures food doesn't spawn on snake's body
- * 
- * @param food - Pointer to food to spawn
- * @param snake - Pointer to snake (to avoid spawning on snake)
- * @param gridOffset - Grid offset for position calculation
+ * generate food at random place
+ * avoid snake body
  */
-void Food_Spawn(Food* food, const Snake* snake, Vector2 gridOffset)
+void Food_Spawn(Food* f, Snake* s, Vector2 off)
 {
-    assert(food != NULL);
-    assert(snake != NULL);
-    
-    food->active = true;
-    
-    int cols = Utils_GetGridColumns();
-    int rows = Utils_GetGridRows();
-    
-    // Check if grid is completely filled with snake
-    if (snake->length >= cols * rows)
+
+    int c = Utils_GetGridColumns();
+    int r = Utils_GetGridRows();
+
+    int fx, fy;
+
+    f->active = true;
+
+
+    // if snake fills grid then no food
+    if(s->length >= c*r)
     {
-        food->active = false;
+        f->active = false;
         return;
     }
-    
-    int randomX, randomY;
-    bool positionValid;
-    
-    /*
-     * Find a valid random position that doesn't overlap with snake
-     * Uses a loop to retry until valid position is found
-     */
-    do
+
+
+    int ok = 0;
+
+
+    // find empty place
+    while(!ok)
     {
-        positionValid = true;
-        
-        // Generate random grid coordinates
-        randomX = GetRandomValue(0, cols - 1);
-        randomY = GetRandomValue(0, rows - 1);
-        
-        // Convert to screen coordinates
-        food->position = (Vector2){
-            gridOffset.x + randomX * SQUARE_SIZE,
-            gridOffset.y + randomY * SQUARE_SIZE
-        };
-        
-        // Check if position overlaps with any snake segment
-        for (int i = 0; i < snake->length; i++)
+
+        ok = 1;
+
+        fx = GetRandomValue(0,c-1);
+        fy = GetRandomValue(0,r-1);
+
+        f->position.x = off.x + fx*SQUARE_SIZE;
+        f->position.y = off.y + fy*SQUARE_SIZE;
+
+
+        // check collision with snake
+        for(int i=0;i<s->length;i++)
         {
-            if ((food->position.x == snake->segments[i].position.x) &&
-                (food->position.y == snake->segments[i].position.y))
+
+            if(f->position.x == s->segments[i].position.x &&
+               f->position.y == s->segments[i].position.y)
             {
-                positionValid = false;
+                ok = 0;
                 break;
             }
+
         }
+
     }
-    while (!positionValid);
+
 }
 
-// ============================================================================
-// COLLISION DETECTION
-// ============================================================================
+
+
+// ==============================
+// COLLISION CHECK
+// ==============================
 
 /*
- * Check if food collides with a given position
- * 
- * @param food - Pointer to food
- * @param position - Position to check collision against
- * @return true if collision detected, false otherwise
+ * check snake head hit food
  */
-bool Food_CheckCollision(const Food* food, Vector2 position)
+bool Food_CheckCollision(Food* f, Vector2 p)
 {
-    assert(food != NULL);
-    
-    if (!food->active)
-    {
+
+    if(f->active == false)
         return false;
-    }
-    
-    return (food->position.x == position.x) && 
-           (food->position.y == position.y);
+
+
+    if(f->position.x == p.x &&
+       f->position.y == p.y)
+        return true;
+
+
+    return false;
+
 }
 
-// ============================================================================
-// RENDERING
-// ============================================================================
+
+
+// ==============================
+// DRAW FOOD
+// ==============================
 
 /*
- * Draw food to screen
- * Only renders if food is active
- * 
- * @param food - Pointer to food to render
+ * draw food on screen
  */
-void Food_Render(const Food* food)
+void Food_Render(Food* f)
 {
-    assert(food != NULL);
-    
-    if (food->active)
+
+    if(f->active)
     {
-        DrawRectangleV(food->position, food->size, food->color);
+
+        DrawRectangleV(
+            f->position,
+            f->size,
+            f->color
+        );
+
     }
+
 }
