@@ -1,26 +1,16 @@
-# Makefile for Snake Game (Refactored)
-# Course: Advanced Programming Lab
-# Date: February 2026
+# Makefile for Snake Game (Windows MinGW + raylib)
 
-# Compiler settings
+# Compiler
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -O2
-LDFLAGS = -lraylib -lm -lpthread -ldl
 
-# Platform-specific settings
-ifeq ($(OS),Windows_NT)
-    LDFLAGS += -lopengl32 -lgdi32 -lwinmm
-    TARGET = snake_game.exe
-else
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Linux)
-        LDFLAGS += -lGL -lrt -lX11
-    endif
-    ifeq ($(UNAME_S),Darwin)
-        LDFLAGS += -framework OpenGL -framework Cocoa -framework IOKit -framework CoreAudio -framework CoreVideo
-    endif
-    TARGET = snake_game
-endif
+# Compiler flags
+CFLAGS = -Wall -Wextra -std=c99 -O2 -IC:/raylib/include
+
+# Linker flags
+LDFLAGS = -LC:/raylib/lib -lraylib -lopengl32 -lgdi32 -lwinmm
+
+# Target executable
+TARGET = snake_game.exe
 
 # Source files
 SOURCES = main.c game.c snake.c food.c collision.c renderer.c utils.c
@@ -39,9 +29,9 @@ $(TARGET): $(OBJECTS)
 %.o: %.c $(HEADER)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean build files
+# Clean build files (Windows)
 clean:
-	rm -f $(OBJECTS) $(TARGET)
+	del /F /Q $(OBJECTS) $(TARGET)
 	@echo "Clean complete"
 
 # Rebuild from scratch
@@ -49,17 +39,6 @@ rebuild: clean all
 
 # Run the game
 run: $(TARGET)
-	./$(TARGET)
+	.\$(TARGET)
 
-# Help target
-help:
-	@echo "Snake Game Makefile"
-	@echo "-------------------"
-	@echo "Targets:"
-	@echo "  all      - Build the game (default)"
-	@echo "  clean    - Remove build files"
-	@echo "  rebuild  - Clean and build"
-	@echo "  run      - Build and run the game"
-	@echo "  help     - Show this help message"
-
-.PHONY: all clean rebuild run help
+.PHONY: all clean rebuild run
