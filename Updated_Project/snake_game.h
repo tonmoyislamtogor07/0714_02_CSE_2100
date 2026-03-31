@@ -1,11 +1,42 @@
 /*
  * snake_game.h
- * 
- * Main header file for Snake Game
- * Contains type definitions, constants, and function declarations
- * 
+ *
+ * Main header file for Snake Game (C++ Edition)
+ * Contains type definitions, constants, interfaces, and class declarations
+ *
  * Course: Advanced Programming Lab
  * Date: February 2026
+ *
+ * ============================================================================
+ * SOLID PRINCIPLES APPLIED IN THIS FILE
+ * ============================================================================
+ *
+ * [SRP] Single Responsibility Principle:
+ *   - Each struct/class is responsible for one concept only:
+ *     Position -> holds 2D coordinates
+ *     SnakeSegment -> holds one snake body piece
+ *     Food -> holds food entity data
+ *     Snake -> holds all snake segments + behaviour
+ *     GameState -> holds game-level counters and flags only
+ *
+ * [OCP] Open/Closed Principle:
+ *   - IRenderable and IUpdatable interfaces allow new game entities to be
+ *     added without modifying existing rendering or update code.
+ *
+ * [LSP] Liskov Substitution Principle:
+ *   - IRenderable / IUpdatable pure-virtual interfaces are designed so that
+ *     any subtype can safely replace the base type wherever used.
+ *
+ * [ISP] Interface Segregation Principle:
+ *   - IRenderable (render only) and IUpdatable (update only) are kept
+ *     separate so classes implement only what they need — a render-only
+ *     entity does not have to carry an update method.
+ *
+ * [DIP] Dependency Inversion Principle:
+ *   - High-level modules (Game) depend on abstractions (IRenderable,
+ *     IUpdatable) rather than concrete classes, decoupling the game
+ *     loop from implementation details of each entity.
+ * ============================================================================
  */
 
 #ifndef SNAKE_GAME_H
@@ -18,67 +49,100 @@
 // GAME CONFIGURATION CONSTANTS
 // ============================================================================
 
-#define MAX_SNAKE_LENGTH   400
-#define SQUARE_SIZE        31
-#define SCREEN_WIDTH       800
-#define SCREEN_HEIGHT      450
-#define TARGET_FPS         30
-#define MOVE_FRAME_DELAY   5
-#define FREEZE_DURATION    60  // Frames to freeze before game over
+constexpr int MAX_SNAKE_LENGTH  = 400;
+constexpr int SQUARE_SIZE       = 31;
+constexpr int SCREEN_WIDTH      = 800;
+constexpr int SCREEN_HEIGHT     = 450;
+constexpr int TARGET_FPS        = 30;
+constexpr int MOVE_FRAME_DELAY  = 5;
+constexpr int FREEZE_DURATION   = 60;   // Frames to freeze before game over
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
 /*
- * Position in 2D space
+ * [SRP] Position is solely responsible for representing a 2D coordinate.
  */
-typedef struct {
+struct Position {
     float x;
     float y;
-} Position;
+};
 
 /*
- * Represents a single segment of the snake
+ * [SRP] SnakeSegment holds data for exactly one body piece.
  */
-typedef struct {
+struct SnakeSegment {
     Vector2 position;
     Vector2 size;
     Vector2 speed;
-    Color color;
-} SnakeSegment;
+    Color   color;
+};
 
 /*
- * Represents the food/fruit in the game
+ * [SRP] Food holds state for the food entity only.
  */
-typedef struct {
+struct Food {
     Vector2 position;
     Vector2 size;
-    bool active;
-    Color color;
-} Food;
+    bool    active;
+    Color   color;
+};
 
 /*
- * Complete snake entity with all segments
+ * [SRP] Snake aggregates all segments and movement metadata.
  */
-typedef struct {
+struct Snake {
     SnakeSegment segments[MAX_SNAKE_LENGTH];
-    Vector2 segmentPositions[MAX_SNAKE_LENGTH];
-    int length;
-    bool allowMove;
-} Snake;
+    Vector2      segmentPositions[MAX_SNAKE_LENGTH];
+    int          length;
+    bool         allowMove;
+};
 
 /*
- * Game state and configuration
+ * [SRP] GameState holds only game-level counters and flags.
+ *       It knows nothing about entities — they live in game.cpp.
  */
-typedef struct {
-    int framesCounter;
-    int playerScore;
-    bool isGameOver;
-    bool isPaused;
-    int freezeCounter;
+struct GameState {
+    int     framesCounter;
+    int     playerScore;
+    bool    isGameOver;
+    bool    isPaused;
+    int     freezeCounter;
     Vector2 gridOffset;
-} GameState;
+};
+
+// ============================================================================
+// ABSTRACTIONS (interfaces via pure-virtual structs)
+//
+// [OCP] New renderable or updatable entities can be added without touching
+//       existing Game, Renderer, or other module code.
+//
+// [ISP] Rendering and updating concerns are segregated into separate
+//       interfaces so that render-only entities are not forced to implement
+//       update logic and vice-versa.
+//
+// [DIP] High-level game loop code depends on these abstractions, not on
+//       concrete Snake / Food / Renderer types.
+// ============================================================================
+
+/*
+ * IRenderable — anything that can draw itself to the screen.
+ * [ISP] Kept separate from IUpdatable.
+ */
+struct IRenderable {
+    virtual void render() const = 0;
+    virtual ~IRenderable() = default;
+};
+
+/*
+ * IUpdatable — anything that can advance its own state.
+ * [ISP] Kept separate from IRenderable.
+ */
+struct IUpdatable {
+    virtual void update(int framesCounter) = 0;
+    virtual ~IUpdatable() = default;
+};
 
 // ============================================================================
 // CORE GAME FUNCTIONS
@@ -131,9 +195,9 @@ void Renderer_DrawFreezeEffect(void);
 // UTILITY FUNCTIONS
 // ============================================================================
 
-int Utils_GetGridColumns(void);
-int Utils_GetGridRows(void);
+int     Utils_GetGridColumns(void);
+int     Utils_GetGridRows(void);
 Vector2 Utils_CalculateGridOffset(void);
-bool Utils_IsPositionValid(Vector2 position, Vector2 gridOffset);
+bool    Utils_IsPositionValid(Vector2 position, Vector2 gridOffset);
 
 #endif // SNAKE_GAME_H
