@@ -1,404 +1,244 @@
-# 🔄 Refactoring Comparison Guide
+# 🐍 Snake Game - Refactored Edition
 
-## Original vs. Refactored Code
-
-This document highlights the key improvements made during refactoring.
-
----
-
-## 📊 Metrics Comparison
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **Files** | 1 monolithic file | 8 modular files | +700% modularity |
-| **Lines per file** | 330+ lines | 50-150 lines avg | Better organization |
-| **Global variables** | 11 globals | 3 static module vars | 73% reduction |
-| **Function length** | 100+ lines | 10-50 lines avg | Better readability |
-| **Comments** | Minimal | Comprehensive | Professional documentation |
+**Course:** Advanced Programming Lab  
+**Language:** C  
+**Graphics Library:** Raylib  
+**Purpose:** Demonstrate professional code refactoring and software engineering standards
 
 ---
 
-## 🏗️ Structural Improvements
+## 📋 Project Overview
 
-### File Organization
+This is a fully refactored version of the classic Snake game, implementing modern software engineering practices including:
 
-**Before:**
-```
-snake_game/
-└── main.c (everything in one file)
-```
+- ✅ **Modular Architecture** - Separation of concerns across multiple modules
+- ✅ **Professional Naming Conventions** - Clear, descriptive identifiers
+- ✅ **Comprehensive Documentation** - Detailed comments and documentation
+- ✅ **Clean Code Structure** - Well-organized folder hierarchy
+- ✅ **Error Handling** - Assertions and safe programming practices
+- ✅ **Scalable Design** - Easy to extend with new features
 
-**After:**
+---
+
+## 🗂️ Project Structure
+
 ```
-snake_game/
-├── main.c           # Entry point
-├── game.c           # Game loop
-├── snake.c          # Snake logic
-├── food.c           # Food logic
-├── collision.c      # Collision detection
-├── renderer.c       # Rendering
-├── utils.c          # Utilities
-├── snake_game.h     # Declarations
-├── Makefile         # Build system
-└── README.md        # Documentation
+snake-game-refactored/
+├── main.c              # Main entry point
+├── game.c              # Core game logic and state management
+├── snake.c             # Snake entity management
+├── food.c              # Food spawning and management
+├── collision.c         # Collision detection module
+├── renderer.c          # Rendering and UI display
+├── utils.c             # Utility functions
+├── snake_game.h        # Main header file with all declarations
+├── Makefile            # Build configuration
+└── README.md           # This file
 ```
 
 ---
 
-## 🏷️ Naming Convention Examples
+## 🎮 Game Features
 
-### Variables
-
-| Before | After | Benefit |
-|--------|-------|---------|
-| `x, y` | `snakeHeadX, snakeHeadY` | Self-documenting |
-| `scr` | `playerScore` | Clear purpose |
-| `snkLen` | `snakeLength` | No abbreviations |
-| `dir` | `snakeDirection` | Explicit meaning |
-| `framesCounter` | `framesCounter` | (Already good!) |
-
-### Functions
-
-| Before | After | Benefit |
-|--------|-------|---------|
-| `UpdateGame()` | `Game_Update()` | Module prefix |
-| `DrawGame()` | `Game_Render()` | Verb-based naming |
-| N/A | `Snake_ProcessInput()` | Clear responsibility |
-| N/A | `Food_Spawn()` | Domain-specific |
-| N/A | `Collision_CheckSnakeWithFood()` | Descriptive |
-
-### Constants
-
-| Before | After | Benefit |
-|--------|-------|---------|
-| `SNAKE_LENGTH` | `MAX_SNAKE_LENGTH` | Clarifies it's a limit |
-| `screenWidth` | `SCREEN_WIDTH` | Constant convention |
-| `screenHeight` | `SCREEN_HEIGHT` | Constant convention |
-| N/A | `MOVE_FRAME_DELAY` | Named magic number |
+- Classic snake gameplay with wrap-around screen edges
+- Smooth keyboard controls (Arrow keys)
+- Score tracking
+- Pause functionality (Press 'P')
+- Game over screen with restart option (Press ENTER)
+- Visual freeze effect on collision before game over
 
 ---
 
-## 🎯 Code Quality Improvements
+## 🔧 Building the Game
 
-### 1. Global Variable Reduction
+### Prerequisites
 
-**Before:**
-```c
-static int framesCounter = 0;
-static int score = 0;
-static bool gameOver = false;
-static bool pause = false;
-static Food fruit = { 0 };
-static Snake snake[SNAKE_LENGTH] = { 0 };
-static Vector2 snakePosition[SNAKE_LENGTH] = { 0 };
-static bool allowMove = false;
-static Vector2 offset = { 0 };
-static int counterTail = 0;
-static int freezeCounter = 0;
+- GCC compiler (or compatible C compiler)
+- Raylib library installed
+- Make (optional, for using Makefile)
+
+### Installation Steps
+
+#### Linux/macOS
+
+1. Install Raylib:
+```bash
+# Ubuntu/Debian
+sudo apt install libraylib-dev
+
+# macOS (using Homebrew)
+brew install raylib
 ```
 
-**After:**
-```c
-// Organized into structures
-static GameState gameState = { 0 };
-static Snake playerSnake = { 0 };
-static Food gameFruit = { 0 };
+2. Build the game:
+```bash
+make
 ```
 
----
-
-### 2. Function Modularity
-
-**Before (Mixed Responsibilities):**
-```c
-void UpdateGame(void)
-{
-    // Input processing
-    if (IsKeyPressed(KEY_RIGHT) && ...) { ... }
-    
-    // Snake movement
-    for (int i = 0; i < counterTail; i++) { ... }
-    
-    // Collision detection
-    if (snake[0].position.x == snake[i].position.x) { ... }
-    
-    // Food spawning
-    fruit.active = true;
-    // ... complex spawning logic
-    
-    // Food collision
-    if (snake[0].position.x == fruit.position.x) { ... }
-}
+3. Run the game:
+```bash
+make run
 ```
 
-**After (Single Responsibility):**
-```c
-void Game_Update(void)
-{
-    Snake_ProcessInput(&playerSnake);
-    Snake_UpdatePosition(&playerSnake, gameState.framesCounter);
-    Snake_HandleWrapAround(&playerSnake, gameState.gridOffset);
-    
-    if (Snake_CheckSelfCollision(&playerSnake)) {
-        gameState.freezeCounter = FREEZE_DURATION;
-    }
-    
-    if (!gameFruit.active) {
-        Food_Spawn(&gameFruit, &playerSnake, gameState.gridOffset);
-    }
-    
-    if (Collision_CheckSnakeWithFood(&playerSnake, &gameFruit)) {
-        Snake_Grow(&playerSnake);
-        gameFruit.active = false;
-        gameState.playerScore++;
-    }
-}
+#### Windows
+
+1. Install Raylib (follow official Raylib installation guide)
+2. Build using MinGW:
+```bash
+make
+```
+
+### Manual Compilation
+
+If you prefer not to use the Makefile:
+
+```bash
+gcc main.c game.c snake.c food.c collision.c renderer.c utils.c -o snake_game -lraylib -lm -lpthread -ldl
 ```
 
 ---
 
-### 3. Data Encapsulation
+## 🎯 How to Play
 
-**Before (Flat Arrays):**
-```c
-static Snake snake[SNAKE_LENGTH] = { 0 };
-static Vector2 snakePosition[SNAKE_LENGTH] = { 0 };
-static bool allowMove = false;
-static int counterTail = 0;
-```
+- **Arrow Keys** - Control snake direction
+- **P** - Pause/Unpause game
+- **ENTER** - Restart game after game over
 
-**After (Structured):**
-```c
-typedef struct {
-    SnakeSegment segments[MAX_SNAKE_LENGTH];
-    Vector2 segmentPositions[MAX_SNAKE_LENGTH];
-    int length;
-    bool allowMove;
-} Snake;
+**Objective:** Eat the yellow food to grow your snake and increase your score. Avoid running into yourself!
 
-static Snake playerSnake = { 0 };
-```
+---
+
+## 📚 Code Architecture
+
+### Module Responsibilities
+
+#### **game.c** - Core Game Logic
+- Game state management
+- Main game loop coordination
+- Event orchestration between modules
+
+#### **snake.c** - Snake Entity
+- Snake movement and positioning
+- Input processing
+- Self-collision detection
+- Growth mechanics
+
+#### **food.c** - Food Management
+- Random food spawning
+- Collision with snake
+- Ensures food doesn't spawn on snake
+
+#### **collision.c** - Collision Detection
+- Centralized collision logic
+- Snake-food collision
+- Snake-self collision
+
+#### **renderer.c** - Visual Output
+- Grid rendering
+- Entity rendering coordination
+- UI overlays (pause, game over)
+
+#### **utils.c** - Helper Functions
+- Grid calculations
+- Position validation
+- Common mathematical operations
+
+---
+
+## 🔍 Refactoring Highlights
+
+### Before Refactoring Issues:
+- ❌ Single file with 300+ lines
+- ❌ Global variables scattered throughout
+- ❌ Cryptic variable names (x, y, scr, snkLen)
+- ❌ Mixed responsibilities in functions
+- ❌ Difficult to test or extend
+
+### After Refactoring Improvements:
+- ✅ Modular structure (7 files + 1 header)
+- ✅ Encapsulated state in structures
+- ✅ Descriptive names (playerScore, snakeLength)
+- ✅ Single Responsibility Principle
+- ✅ Easy to test and extend
+
+---
+
+## 🚀 Future Enhancements
+
+Potential features to add:
+
+- [ ] Multiple difficulty levels
+- [ ] Obstacles and power-ups
+- [ ] High score persistence (save/load)
+- [ ] Sound effects
+- [ ] Multiple game modes
+- [ ] AI-controlled snake opponent
+- [ ] Unit testing framework
+- [ ] Configuration file support
+
+---
+
+## 📖 Learning Outcomes
+
+This refactored code demonstrates:
+
+1. **Separation of Concerns** - Each module has a clear, focused purpose
+2. **Naming Conventions** - Consistent, descriptive naming throughout
+3. **Documentation** - Every function includes purpose and parameter documentation
+4. **Error Handling** - Assertions validate assumptions and prevent bugs
+5. **Maintainability** - Code is easy to read, understand, and modify
+6. **Scalability** - New features can be added without major restructuring
 
 ---
 
 ## 📝 Documentation Standards
 
-### Before
-```c
-// Initialize game variables
-void InitGame(void)
-{
-    framesCounter = 0;
-    score = 0;
-    // ...
-}
-```
+All functions follow this documentation pattern:
 
-### After
 ```c
 /*
- * Initialize all game systems and reset game state
- * Called at game start and when restarting after game over
+ * Brief description of what the function does
+ * 
+ * @param paramName - Description of parameter
+ * @return Description of return value
  */
-void Game_Initialize(void)
-{
-    // Reset game state
-    gameState.framesCounter = 0;
-    gameState.playerScore = 0;
-    // ...
-}
 ```
 
 ---
 
-## 🔍 Specific Refactoring Examples
+## 🛠️ Development Guidelines
 
-### Example 1: Snake Movement
+When extending this code:
 
-**Before:**
-```c
-// Inside UpdateGame()
-for (int i = 0; i < counterTail; i++) snakePosition[i] = snake[i].position;
-
-if ((framesCounter % 5) == 0)
-{
-    for (int i = 0; i < counterTail; i++)
-    {
-        if (i == 0)
-        {
-            snake[0].position.x += snake[0].speed.x;
-            snake[0].position.y += snake[0].speed.y;
-            allowMove = true;
-        }
-        else snake[i].position = snakePosition[i - 1];
-    }
-}
-```
-
-**After:**
-```c
-// Dedicated function with clear purpose
-void Snake_UpdatePosition(Snake* snake, int framesCounter)
-{
-    assert(snake != NULL);
-    
-    // Store previous positions
-    for (int i = 0; i < snake->length; i++)
-    {
-        snake->segmentPositions[i] = snake->segments[i].position;
-    }
-
-    // Move snake every MOVE_FRAME_DELAY frames
-    if ((framesCounter % MOVE_FRAME_DELAY) == 0)
-    {
-        for (int i = 0; i < snake->length; i++)
-        {
-            if (i == 0)
-            {
-                // Move head
-                snake->segments[0].position.x += snake->segments[0].speed.x;
-                snake->segments[0].position.y += snake->segments[0].speed.y;
-                snake->allowMove = true;
-            }
-            else
-            {
-                // Body segments follow
-                snake->segments[i].position = snake->segmentPositions[i - 1];
-            }
-        }
-    }
-}
-```
+1. **Follow naming conventions**: Use descriptive names with module prefixes
+2. **Maintain separation**: Keep modules focused on single responsibilities
+3. **Document thoroughly**: Add comments explaining the "why", not just the "what"
+4. **Use assertions**: Validate assumptions in debug builds
+5. **Test incrementally**: Verify functionality after each change
 
 ---
 
-### Example 2: Food Spawning
+## 📄 License
 
-**Before (Nested in UpdateGame):**
-```c
-if (!fruit.active)
-{
-    fruit.active = true;
-    int fx, fy;
-    int cols = screenWidth / SQUARE_SIZE;
-    int rows = screenHeight / SQUARE_SIZE;
-    fx = GetRandomValue(0, cols - 1);
-    fy = GetRandomValue(0, rows - 1);
-    fruit.position = (Vector2){ offset.x + fx * SQUARE_SIZE, offset.y + fy * SQUARE_SIZE };
-
-    if (counterTail >= cols * rows)
-    {
-        fruit.active = false;
-    }
-    else
-    {
-        bool collide;
-        do
-        {
-            collide = false;
-            for (int i = 0; i < counterTail; i++)
-            {
-                if ((fruit.position.x == snake[i].position.x) && 
-                    (fruit.position.y == snake[i].position.y))
-                {
-                    fx = GetRandomValue(0, cols - 1);
-                    fy = GetRandomValue(0, rows - 1);
-                    fruit.position = (Vector2){ offset.x + fx * SQUARE_SIZE, 
-                                                offset.y + fy * SQUARE_SIZE };
-                    collide = true;
-                    break;
-                }
-            }
-        } while (collide);
-    }
-}
-```
-
-**After (Dedicated Module Function):**
-```c
-void Food_Spawn(Food* food, const Snake* snake, Vector2 gridOffset)
-{
-    assert(food != NULL);
-    assert(snake != NULL);
-    
-    food->active = true;
-    
-    int cols = Utils_GetGridColumns();
-    int rows = Utils_GetGridRows();
-    
-    // Check if grid is completely filled
-    if (snake->length >= cols * rows)
-    {
-        food->active = false;
-        return;
-    }
-    
-    int randomX, randomY;
-    bool positionValid;
-    
-    /*
-     * Find valid position that doesn't overlap with snake
-     */
-    do
-    {
-        positionValid = true;
-        
-        randomX = GetRandomValue(0, cols - 1);
-        randomY = GetRandomValue(0, rows - 1);
-        
-        food->position = (Vector2){
-            gridOffset.x + randomX * SQUARE_SIZE,
-            gridOffset.y + randomY * SQUARE_SIZE
-        };
-        
-        // Check overlap with snake
-        for (int i = 0; i < snake->length; i++)
-        {
-            if ((food->position.x == snake->segments[i].position.x) &&
-                (food->position.y == snake->segments[i].position.y))
-            {
-                positionValid = false;
-                break;
-            }
-        }
-    }
-    while (!positionValid);
-}
-```
+Educational project for Advanced Programming Lab course.
 
 ---
 
-## ✅ Benefits Achieved
+## 👨‍💻 Author
 
-1. **Maintainability** 📈
-   - Easier to find and fix bugs
-   - Clear module boundaries
-   - Self-documenting code
-
-2. **Testability** 🧪
-   - Individual modules can be tested separately
-   - Functions have clear inputs/outputs
-   - Minimal global state
-
-3. **Scalability** 🚀
-   - Easy to add new features
-   - New modules integrate cleanly
-   - Extensible architecture
-
-4. **Readability** 📖
-   - Descriptive names tell the story
-   - Logical organization
-   - Comprehensive documentation
-
-5. **Professional Standards** 💼
-   - Industry best practices
-   - Consistent code style
-   - Production-ready quality
+Refactored by: [Your Name]  
+Original Game: Classic Snake  
+Course: Advanced Programming Lab  
+Date: February 2026
 
 ---
 
-## 🎓 Key Takeaways
+## 🙏 Acknowledgments
 
-> "Good code is not just code that works — it's code that can be understood, maintained, and extended by others (including your future self!)."
+- **Raylib** - For the excellent graphics library
+- **Original Snake** - For the timeless gameplay concept
+- **Course Instructors** - For teaching software engineering principles
 
-The refactoring process transformed a functional but monolithic codebase into a professional, modular, and maintainable software project that demonstrates real-world engineering principles.
+---
+
+**Happy Coding! 🎮🐍**
