@@ -5,7 +5,6 @@
 This project demonstrates the application of **SOLID principles** in both **C** and **C++** for a classic Snake game. The project was refactored from a monolithic design to a modular, maintainable architecture following professional software engineering best practices.
 
 **Course:** Advanced Programming Lab  
-**Date:** February 2026  
 **Language:** C and C++  
 **Graphics Library:** Raylib
 
