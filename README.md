@@ -1,247 +1,192 @@
-# 0714_02_CSE_2100
-Course Code: 0714 02 CSE 2100 || Course Title : Advanced Programming Laboratory 
+# 🐍 Snake Game — MVC Refactor (C++ / Raylib)
 
-# 🐍 Snake Game - Refactored Edition
-
-**Course:** Advanced Programming Lab  
-**Language:** C  
-**Graphics Library:** Raylib  
-**Purpose:** Demonstrate professional code refactoring and software engineering standards
+> A classic Snake game built in C++ with Raylib, refactored from a SOLID-principles codebase into a clean **Model-View-Controller (MVC)** architecture.
 
 ---
 
-## 📋 Project Overview
+## 📌 What This Project Is
 
-This is a fully refactored version of the classic Snake game, implementing modern software engineering practices including:
+This repository contains two versions of the same Snake game:
 
-- ✅ **Modular Architecture** - Separation of concerns across multiple modules
-- ✅ **Professional Naming Conventions** - Clear, descriptive identifiers
-- ✅ **Comprehensive Documentation** - Detailed comments and documentation
-- ✅ **Clean Code Structure** - Well-organized folder hierarchy
-- ✅ **Error Handling** - Assertions and safe programming practices
-- ✅ **Scalable Design** - Easy to extend with new features
+| Version | Folder | Architecture |
+|---|---|---|
+| Original | `Updated_Project_With_SOLID.CPP/` | SOLID Principles |
+| Refactored | `SnakeGame_MVC/` | MVC (Model-View-Controller) |
 
----
-
-## 🗂️ Project Structure
-
-```
-snake-game-refactored/
-├── main.c              # Main entry point
-├── game.c              # Core game logic and state management
-├── snake.c             # Snake entity management
-├── food.c              # Food spawning and management
-├── collision.c         # Collision detection module
-├── renderer.c          # Rendering and UI display
-├── utils.c             # Utility functions
-├── snake_game.h        # Main header file with all declarations
-├── Makefile            # Build configuration
-└── README.md           # This file
-```
+The game itself is unchanged — same snake movement, food spawning, wrap-around, self-collision, freeze effect, and scoring. What changed is **how the code is organized**.
 
 ---
 
 ## 🎮 Game Features
 
-- Classic snake gameplay with wrap-around screen edges
-- Smooth keyboard controls (Arrow keys)
-- Score tracking
-- Pause functionality (Press 'P')
-- Game over screen with restart option (Press ENTER)
-- Visual freeze effect on collision before game over
+- Classic grid-based snake movement
+- Wrap-around edges (snake exits one side, enters the other)
+- Self-collision with a freeze effect before game over
+- Random food spawning (guaranteed not to overlap the snake)
+- Live score display + final score on game over
+- Pause / unpause with `P`
+- Restart with `Enter` after game over
+
+**Controls:**  
+`↑ ↓ ← →` — Move &nbsp;|&nbsp; `P` — Pause &nbsp;|&nbsp; `Enter` — Restart
 
 ---
 
-## 🔧 Building the Game
+## 🏗️ What is MVC and Why Use It?
 
-### Prerequisites
+**MVC (Model-View-Controller)** is an architectural pattern that separates a program into three distinct layers:
 
-- GCC compiler (or compatible C compiler)
-- Raylib library installed
-- Make (optional, for using Makefile)
-
-### Installation Steps
-
-#### Linux/macOS
-
-1. Install Raylib:
-```bash
-# Ubuntu/Debian
-sudo apt install libraylib-dev
-
-# macOS (using Homebrew)
-brew install raylib
+```
+┌──────────────────────────────────────────────────────────┐
+│                        main.cpp                          │
+│             (bootstrap only — calls Controller)          │
+└──────────────────────┬───────────────────────────────────┘
+                       │
+       ┌───────────────▼───────────────┐
+       │         controller.cpp        │
+       │  • Owns the game loop         │
+       │  • Polls keyboard input ONLY  │
+       │  • Builds InputCommand        │
+       │  • Calls Model, then View     │
+       └──────┬───────────────┬────────┘
+              │               │
+   ┌──────────▼────┐   ┌──────▼──────────────┐
+   │   model.cpp   │   │      view.cpp        │
+   │               │   │                     │
+   │  All game     │   │  All draw calls     │
+   │  data +       │◄──│  (read-only access  │
+   │  all logic    │   │   to model data)    │
+   └───────────────┘   └─────────────────────┘
 ```
 
-2. Build the game:
+| Layer | File | Responsibility |
+|---|---|---|
+| **Model** | `model.cpp` | Owns Snake, Food, GameState. Contains ALL game logic — movement, collision detection, scoring, food spawning. Never reads input, never draws. |
+| **View** | `view.cpp` | Every single `DrawRectangle`, `DrawText`, `DrawLine` call. Receives const (read-only) pointers. Never modifies data. |
+| **Controller** | `controller.cpp` | The ONLY place `IsKeyPressed` is called. Translates keys into neutral `InputCommand` structs. Drives the loop: Poll → Update → Render. |
+
+---
+
+## 🔄 Before vs After: What Changed
+
+### File Structure
+
+| Original (SOLID) | MVC Refactor | Notes |
+|---|---|---|
+| `game.cpp` | `model.cpp` + `controller.cpp` | Logic and coordination split into proper layers |
+| `snake.cpp` | `model.cpp` | Snake data + movement logic moved into Model |
+| `food.cpp` | `model.cpp` | Food data + spawn logic moved into Model |
+| `collision.cpp` | `model.cpp` | Collision detection is game logic → belongs in Model |
+| `renderer.cpp` + `Snake_Render()` + `Food_Render()` | `view.cpp` | ALL rendering unified into one View file |
+| `main.cpp` | `main.cpp` | Now calls only `Controller_Run()` |
+| `utils.cpp` | `utils.cpp` | Unchanged — pure helpers shared across all layers |
+| `snake_game.h` | `snake_game.h` | Extended with `InputCommand` and MVC function signatures |
+
+### The Biggest Structural Changes
+
+**1. Input was inside the wrong layer**
+
+In the original, `Snake_ProcessInput()` lived in `snake.cpp` and called `IsKeyPressed` directly. This meant the Snake entity knew about keyboard keys — mixing input concern with game entity logic.
+
+```cpp
+// ❌ ORIGINAL — input buried inside snake.cpp
+void Snake_ProcessInput(Snake* snake) {
+    if (IsKeyPressed(KEY_RIGHT) && ...) { ... }
+}
+```
+
+```cpp
+// ✅ MVC — controller.cpp is the ONLY file that reads input
+InputCommand Controller_PollInput(...) {
+    if (IsKeyPressed(KEY_RIGHT)) cmd.moveDirection = Direction::Right;
+    return cmd;  // neutral command sent to Model
+}
+```
+
+**2. The Model never sees keys — it sees commands**
+
+A new `InputCommand` struct decouples the Controller from the Model:
+
+```cpp
+struct InputCommand {
+    Direction moveDirection;  // Up / Down / Left / Right / None
+    bool      togglePause;
+    bool      restart;
+};
+```
+
+The Model receives intent, not keycode. This means the game logic could be reused with a gamepad, touch input, or AI player — just produce a different `InputCommand`.
+
+**3. Rendering was fragmented**
+
+Original rendering was spread across four files (`game.cpp`, `snake.cpp`, `food.cpp`, `renderer.cpp`). In MVC, the View is a single cohesive layer — if you want to change how anything looks, you open `view.cpp` and only `view.cpp`.
+
+**4. Data ownership is clear**
+
+Original game data lived as globals in `game.cpp`. In MVC, all data lives as private statics in `model.cpp`. No other file can write to them — only read via `const` accessors:
+
+```cpp
+const Snake*     Model_GetSnake(void);
+const Food*      Model_GetFood(void);
+const GameState* Model_GetGameState(void);
+```
+
+---
+
+## 📁 MVC Project Structure
+
+```
+SnakeGame_MVC/
+├── snake_game.h      # Shared types, constants, MVC function declarations
+├── model.cpp         # MODEL   — all game data and logic
+├── view.cpp          # VIEW    — all rendering
+├── controller.cpp    # CONTROLLER — input polling, game loop
+├── utils.cpp         # Shared pure helper functions
+├── main.cpp          # Entry point (calls Controller_Run only)
+└── Makefile
+```
+
+---
+
+## 🧱 SOLID vs MVC — Are They Different Things?
+
+Yes — they complement each other, not compete:
+
+| | SOLID | MVC |
+|---|---|---|
+| **What it is** | Design principles for writing clean individual classes/functions | Architectural pattern for organizing entire layers of an application |
+| **Scale** | Function / class level | Application / module level |
+| **Goal** | Make each piece of code maintainable and extensible | Make the overall structure of the app clear and separated |
+
+The MVC version still respects SOLID principles internally. MVC is the **macro-level structure**; SOLID describes how each function within that structure is written.
+
+---
+
+## 🛠️ Build & Run
+
+**Requirements:** [Raylib](https://www.raylib.com/) installed on your system.
+
 ```bash
+cd SnakeGame_MVC
 make
+./snake_mvc
 ```
 
-3. Run the game:
+To clean:
 ```bash
-make run
-```
-
-#### Windows
-
-1. Install Raylib (follow official Raylib installation guide)
-2. Build using MinGW:
-```bash
-make
-```
-
-### Manual Compilation
-
-If you prefer not to use the Makefile:
-
-```bash
-gcc main.c game.c snake.c food.c collision.c renderer.c utils.c -o snake_game -lraylib -lm -lpthread -ldl
+make clean
 ```
 
 ---
 
-## 🎯 How to Play
+## 📚 Concepts Demonstrated
 
-- **Arrow Keys** - Control snake direction
-- **P** - Pause/Unpause game
-- **ENTER** - Restart game after game over
-
-**Objective:** Eat the yellow food to grow your snake and increase your score. Avoid running into yourself!
-
----
-
-## 📚 Code Architecture
-
-### Module Responsibilities
-
-#### **game.c** - Core Game Logic
-- Game state management
-- Main game loop coordination
-- Event orchestration between modules
-
-#### **snake.c** - Snake Entity
-- Snake movement and positioning
-- Input processing
-- Self-collision detection
-- Growth mechanics
-
-#### **food.c** - Food Management
-- Random food spawning
-- Collision with snake
-- Ensures food doesn't spawn on snake
-
-#### **collision.c** - Collision Detection
-- Centralized collision logic
-- Snake-food collision
-- Snake-self collision
-
-#### **renderer.c** - Visual Output
-- Grid rendering
-- Entity rendering coordination
-- UI overlays (pause, game over)
-
-#### **utils.c** - Helper Functions
-- Grid calculations
-- Position validation
-- Common mathematical operations
+- **MVC architecture** in a C++ game context
+- **Separation of concerns** — input, logic, and rendering in isolated layers
+- **Command pattern** — `InputCommand` struct decouples input from game logic
+- **Read-only interfaces** — `const` pointers prevent the View from mutating state
+- **SOLID principles** preserved within each layer (SRP, OCP, DIP, ISP, LSP)
 
 ---
 
-## 🔍 Refactoring Highlights
-
-### Before Refactoring Issues:
-- ❌ Single file with 300+ lines
-- ❌ Global variables scattered throughout
-- ❌ Cryptic variable names (x, y, scr, snkLen)
-- ❌ Mixed responsibilities in functions
-- ❌ Difficult to test or extend
-
-### After Refactoring Improvements:
-- ✅ Modular structure (7 files + 1 header)
-- ✅ Encapsulated state in structures
-- ✅ Descriptive names (playerScore, snakeLength)
-- ✅ Single Responsibility Principle
-- ✅ Easy to test and extend
-
----
-
-## 🚀 Future Enhancements
-
-Potential features to add:
-
-- [ ] Multiple difficulty levels
-- [ ] Obstacles and power-ups
-- [ ] High score persistence (save/load)
-- [ ] Sound effects
-- [ ] Multiple game modes
-- [ ] AI-controlled snake opponent
-- [ ] Unit testing framework
-- [ ] Configuration file support
-
----
-
-## 📖 Learning Outcomes
-
-This refactored code demonstrates:
-
-1. **Separation of Concerns** - Each module has a clear, focused purpose
-2. **Naming Conventions** - Consistent, descriptive naming throughout
-3. **Documentation** - Every function includes purpose and parameter documentation
-4. **Error Handling** - Assertions validate assumptions and prevent bugs
-5. **Maintainability** - Code is easy to read, understand, and modify
-6. **Scalability** - New features can be added without major restructuring
-
----
-
-## 📝 Documentation Standards
-
-All functions follow this documentation pattern:
-
-```c
-/*
- * Brief description of what the function does
- * 
- * @param paramName - Description of parameter
- * @return Description of return value
- */
-```
-
----
-
-## 🛠️ Development Guidelines
-
-When extending this code:
-
-1. **Follow naming conventions**: Use descriptive names with module prefixes
-2. **Maintain separation**: Keep modules focused on single responsibilities
-3. **Document thoroughly**: Add comments explaining the "why", not just the "what"
-4. **Use assertions**: Validate assumptions in debug builds
-5. **Test incrementally**: Verify functionality after each change
-
----
-
-## 📄 License
-
-Educational project for Advanced Programming Lab course.
-
----
-
-## 👨‍💻 Author
-
-Refactored by: [Your Name]  
-Original Game: Classic Snake  
-Course: Advanced Programming Lab  
-Date: February 2026
-
----
-
-## 🙏 Acknowledgments
-
-- **Raylib** - For the excellent graphics library
-- **Original Snake** - For the timeless gameplay concept
-- **Course Instructors** - For teaching software engineering principles
-
----
-
-**Happy Coding! 🎮🐍**
+*Built with C++17 and [Raylib](https://www.raylib.com/)*
